@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Result - Cow Breed Recognition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="card result-card">
+        <h1 class="title">Prediction Result</h1>
+
+        <div class="result-grid">
+          <div class="img-wrap">
+            <img src="{{ url_for('static', filename='uploads/' ~ filename) }}" alt="Uploaded image" />
+          </div>
+
+          <div class="info">
+            <p class="label">Predicted Breed</p>
+            <h2 class="breed-name">{{ breed }}</h2>
+            <p class="confidence">Confidence: <strong>{{ confidence }}%</strong></p>
+
+            <a href="{{ url_for('index') }}" class="btn secondary">Upload Another Image</a>
+          </div>
+        </div>
+
+        <footer class="footer-note">By: Yash Chitmalwar</footer>
+      </div>
+    </main>
+  </body>
+</html>

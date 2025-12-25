@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Cow & Buffalo Breed Recognition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="card">
+        <h1 class="title">Cow & Buffalo Breed Recognition</h1>
+        <p class="subtitle">Upload a clear image of the cow/buffalo. We'll predict the breed.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="messages">
+              {% for category, msg in messages %}
+                <div class="flash {{ category }}">{{ msg }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" enctype="multipart/form-data" class="upload-form">
+          <label class="upload-box" id="uploadBox">
+            <input type="file" name="image" id="imageInput" accept="image/*" required>
+            <div class="placeholder">
+              <div class="plus">+</div>
+              <div class="hint">Click to select or drag an image here</div>
+            </div>
+            <img id="preview" class="preview" src="" alt="" />
+          </label>
+
+          <button type="submit" class="btn">Predict Breed</button>
+        </form>
+
+        <footer class="footer-note">By: Yash Chitmalwar</footer>
+      </div>
+    </main>
+
+    <script>
+      const imageInput = document.getElementById('imageInput');
+      const preview = document.getElementById('preview');
+      const uploadBox = document.getElementById('uploadBox');
+
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          preview.src = reader.result;
+          preview.style.display = 'block';
+          uploadBox.classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // drag & drop UX
+      ['dragenter','dragover'].forEach(evt =>
+        uploadBox.addEventListener(evt, (e) => { e.preventDefault(); uploadBox.classList.add('dragover'); })
+      );
+      ['dragleave','drop'].forEach(evt =>
+        uploadBox.addEventListener(evt, (e) => { e.preventDefault(); uploadBox.classList.remove('dragover'); })
+      );
+      uploadBox.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        imageInput.files = e.dataTransfer.files;
+        const reader = new FileReader();
+        reader.onload = () => {
+          preview.src = reader.result;
+          preview.style.display = 'block';
+          uploadBox.classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+      });
+    </script>
+  </body>
+</html>
