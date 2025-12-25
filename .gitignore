@@ -1,0 +1,16 @@
+# ❌ Dataset (very important)
+Indian_bovine_breeds/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# User uploaded images
+static/uploads/
+
+# OS junk files
+Thumbs.db
+.DS_Store
