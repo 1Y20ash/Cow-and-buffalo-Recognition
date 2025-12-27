@@ -9,9 +9,15 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 # ==========================
 # Configuration
 # ==========================
+
+print("Loading model...")
+model = tf.keras.models.load_model("model")
+print("✅ Model loaded successfully")
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
-WEIGHTS_PATH = os.path.join(BASE_DIR, "models", "cow_breed_model_gpu.weights.h5")
+#WEIGHTS_PATH = os.path.join(BASE_DIR, "models", "cow_breed_model_gpu.weights.h5")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.txt")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 IMG_SIZE = (224, 224)
@@ -25,7 +31,7 @@ app.secret_key = "a-very-secret-key"
 # ==========================
 # Rebuild SAME architecture as training script
 # ==========================
-def build_model(num_classes):
+"""def build_model(num_classes):
     base_model = tf.keras.applications.EfficientNetB0(
         input_shape=(224, 224, 3),
         include_top=False,
@@ -47,7 +53,7 @@ def build_model(num_classes):
     out = tf.keras.layers.Dense(num_classes, activation="softmax", dtype="float32")(x)
 
     model = tf.keras.Model(inputs=inp, outputs=out)
-    return model
+    return model#"""
 
 # ==========================
 # Load labels
@@ -65,14 +71,14 @@ except Exception as e:
 # ==========================
 # Load model weights
 # ==========================
-model = None
+"""model = None
 try:
     model = build_model(len(idx_to_class))
     model.load_weights(WEIGHTS_PATH)
     print("✅ Loaded model weights successfully!")
 except Exception as e:
     print(f"❌ Failed to load model weights: {e}")
-    model = None
+    model = None"""
 
 # ==========================
 # Helpers
