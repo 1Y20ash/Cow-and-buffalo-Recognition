@@ -18,7 +18,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # Load Model (ONCE at startup)
 # ----------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "cow_breed_model_gpu.h5")
+MODEL_PATH = os.path.join(BASE_DIR, "cow_breed_model.h5")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.txt")
 
 try:
