@@ -294,7 +294,12 @@ print("Labels saved:", len(class_names))
 # --------------------------------------------------
 #  Save final model
 # --------------------------------------------------
-model.save_weights("cow_breed_model_gpu.weights.h5")
+os.makedirs("models", exist_ok=True)
+model.save_weights("models/cow_breed_model_gpu.weights.h5")
 print("Weights saved successfully!")
+
+
+
+
 
 

@@ -1,16 +1,31 @@
-# ❌ Dataset (very important)
+# Dataset
 Indian_bovine_breeds/
 
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 
-# Virtual environment
+# Virtual environments
 venv/
+tf212/
+.venv/
+env/
 
 # User uploaded images
 static/uploads/
 
-# OS junk files
+# Training artifacts
+best_model.weights.h5
+*.keras
+*.ckpt
+
+# OS junk
 Thumbs.db
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
