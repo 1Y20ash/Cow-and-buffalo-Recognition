@@ -17,14 +17,9 @@ IMG_SIZE = (224, 224)
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
-# Secret key must be supplied by the deployment environment.
-# A missing key is treated as a configuration error rather than silently
-# falling back to an insecure hard-coded value.
 secret_key = os.environ.get("FLASK_SECRET_KEY")
 if not secret_key:
-    raise RuntimeError(
-        "FLASK_SECRET_KEY environment variable is required."
-    )
+    raise RuntimeError("FLASK_SECRET_KEY environment variable is required.")
 app.secret_key = secret_key
 
 # ==========================
@@ -47,12 +42,10 @@ def build_model(num_classes):
     x = tf.keras.layers.Dropout(0.3)(x)
     x = tf.keras.layers.Dense(128, activation="relu")(x)
     x = tf.keras.layers.Dropout(0.3)(x)
-
-    # final float32 layer (same as training)
-    out = tf.keras.layers.Dense(num_classes, activation="softmax", dtype="float32")(x)
-
-    model = tf.keras.Model(inputs=inp, outputs=out)
-    return model
+    out = tf.keras.layers.Dense(
+        num_classes, activation="softmax", dtype="float32"
+    )(x)
+    return tf.keras.Model(inputs=inp, outputs=out)
 
 # ==========================
 # Load labels
@@ -62,30 +55,25 @@ try:
         labels = [line.strip() for line in f if line.strip()]
 
     if len(labels) != 42:
-        raise ValueError(
-            f"Expected exactly 42 labels, found {len(labels)}."
-        )
-
+        raise ValueError(f"Expected exactly 42 labels, found {len(labels)}.")
     if len(set(labels)) != len(labels):
         raise ValueError("labels.txt contains duplicate labels.")
 
     idx_to_class = {i: name for i, name in enumerate(labels)}
-    print(f"✅ Loaded and validated {len(labels)} labels")
+    print(f"Loaded and validated {len(labels)} labels")
 except Exception as e:
-    raise RuntimeError(f"❌ Label loading/validation failed: {e}") from e
+    raise RuntimeError(f"Label loading/validation failed: {e}") from e
 
 # ==========================
 # Load model weights
 # ==========================
 def load_production_model():
     if not os.path.isfile(WEIGHTS_PATH):
-        raise FileNotFoundError(
-            f"Model weights not found: {WEIGHTS_PATH}"
-        )
+        raise FileNotFoundError(f"Model weights not found: {WEIGHTS_PATH}")
 
     production_model = build_model(len(labels))
-
     output_shape = production_model.output_shape
+
     if len(output_shape) != 2 or output_shape[-1] != len(labels):
         raise RuntimeError(
             "Model output/label mismatch: "
@@ -101,7 +89,7 @@ def load_production_model():
         ) from e
 
     print(
-        "✅ Production model loaded successfully: "
+        "Production model loaded successfully: "
         f"EfficientNetB0 → {output_shape[-1]} classes"
     )
     return production_model
@@ -112,7 +100,11 @@ model = load_production_model()
 # Helpers
 # ==========================
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    )
+
 
 def prepare_image(file_stream):
     """Decode and preprocess an uploaded image entirely in memory."""
@@ -147,7 +139,6 @@ def health_ready():
         "classes": len(labels)
     }, 200
 
-
 # ==========================
 # Routes
 # ==========================
@@ -172,9 +163,17 @@ def index():
             try:
                 x = prepare_image(file.stream)
                 preds = model.predict(x, verbose=0)[0]
-                top_idx = int(np.argmax(preds))
-                confidence = float(preds[top_idx])
-                breed = idx_to_class.get(top_idx, "Unknown")
+
+                top_indices = np.argsort(preds)[-3:][::-1]
+                predictions = [
+                    {
+                        "breed": idx_to_class.get(int(index), "Unknown"),
+                        "confidence": round(float(preds[index]) * 100, 2)
+                    }
+                    for index in top_indices
+                ]
+
+                top_prediction = predictions[0]
             except Exception as e:
                 flash(f"Prediction error: {e}", "danger")
                 return redirect(request.url)
@@ -182,13 +181,13 @@ def index():
             return render_template(
                 "result.html",
                 filename=file.filename,
-                breed=breed,
-                confidence=round(confidence * 100, 2)
+                breed=top_prediction["breed"],
+                confidence=top_prediction["confidence"],
+                predictions=predictions
             )
 
-        else:
-            flash("Allowed file types: png, jpg, jpeg", "danger")
-            return redirect(request.url)
+        flash("Allowed file types: png, jpg, jpeg", "danger")
+        return redirect(request.url)
 
     return render_template("index.html")
 
@@ -197,4 +196,3 @@ def index():
 # ==========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
