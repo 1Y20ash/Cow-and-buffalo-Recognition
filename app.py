@@ -53,26 +53,55 @@ def build_model(num_classes):
 # Load labels
 # ==========================
 try:
-    with open(LABELS_PATH, "r") as f:
-        labels = [line.strip() for line in f.readlines()]
+    with open(LABELS_PATH, "r", encoding="utf-8") as f:
+        labels = [line.strip() for line in f if line.strip()]
+
+    if len(labels) != 42:
+        raise ValueError(
+            f"Expected exactly 42 labels, found {len(labels)}."
+        )
+
+    if len(set(labels)) != len(labels):
+        raise ValueError("labels.txt contains duplicate labels.")
+
     idx_to_class = {i: name for i, name in enumerate(labels)}
-    print(f"✅ Loaded {len(labels)} labels")
+    print(f"✅ Loaded and validated {len(labels)} labels")
 except Exception as e:
-    labels = []
-    idx_to_class = {}
-    print(f"❌ Failed to load labels: {e}")
+    raise RuntimeError(f"❌ Label loading/validation failed: {e}") from e
 
 # ==========================
 # Load model weights
 # ==========================
-model = None
-try:
-    model = build_model(len(idx_to_class))
-    model.load_weights(WEIGHTS_PATH)
-    print("✅ Loaded model weights successfully!")
-except Exception as e:
-    print(f"❌ Failed to load model weights: {e}")
-    model = None
+def load_production_model():
+    if not os.path.isfile(WEIGHTS_PATH):
+        raise FileNotFoundError(
+            f"Model weights not found: {WEIGHTS_PATH}"
+        )
+
+    production_model = build_model(len(labels))
+
+    output_shape = production_model.output_shape
+    if len(output_shape) != 2 or output_shape[-1] != len(labels):
+        raise RuntimeError(
+            "Model output/label mismatch: "
+            f"model outputs {output_shape[-1] if output_shape else 'unknown'} "
+            f"classes, but labels.txt contains {len(labels)}."
+        )
+
+    try:
+        production_model.load_weights(WEIGHTS_PATH)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load model weights from {WEIGHTS_PATH}: {e}"
+        ) from e
+
+    print(
+        "✅ Production model loaded successfully: "
+        f"EfficientNetB0 → {output_shape[-1]} classes"
+    )
+    return production_model
+
+model = load_production_model()
 
 # ==========================
 # Helpers
