@@ -12,15 +12,33 @@
       <section class="card result-card">
         <span class="eyebrow">PREDICTION COMPLETE</span>
         <h1 class="title">Prediction Result</h1>
-        <p class="subtitle">The model's top prediction for your uploaded image is shown below.</p>
+        <p class="subtitle">The model's top prediction and its confidence are shown below.</p>
 
         <div class="result-panel">
           <div class="result-icon" aria-hidden="true">✓</div>
-          <p class="label">Predicted Breed</p>
+          <p class="label">Top Predicted Breed</p>
           <h2 class="breed-name">{{ breed }}</h2>
           <div class="confidence">
             Confidence <strong>{{ confidence }}%</strong>
           </div>
+          <div class="confidence-track" role="progressbar" aria-valuenow="{{ confidence }}" aria-valuemin="0" aria-valuemax="100" aria-label="Prediction confidence">
+            <span style="width: {{ confidence }}%"></span>
+          </div>
+        </div>
+
+        <div class="alternatives">
+          <h3>Top 3 Model Predictions</h3>
+          {% for prediction in predictions %}
+            <div class="prediction-row">
+              <div class="prediction-meta">
+                <span>{{ loop.index }}. {{ prediction.breed }}</span>
+                <strong>{{ prediction.confidence }}%</strong>
+              </div>
+              <div class="prediction-track" aria-hidden="true">
+                <span style="width: {{ prediction.confidence }}%"></span>
+              </div>
+            </div>
+          {% endfor %}
         </div>
 
         <div class="result-actions">
