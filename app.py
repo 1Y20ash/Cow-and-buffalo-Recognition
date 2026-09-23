@@ -20,7 +20,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.secret_key = "a-very-secret-key"
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
+# Secret key must be supplied by the deployment environment.
+# A missing key is treated as a configuration error rather than silently
+# falling back to an insecure hard-coded value.
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY environment variable is required."
+    )
+app.secret_key = secret_key
 
 # ==========================
 # Rebuild SAME architecture as training script
