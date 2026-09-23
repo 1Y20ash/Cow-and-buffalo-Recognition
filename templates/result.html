@@ -2,31 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Result - Cow Breed Recognition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Prediction Result - Cow & Buffalo Breed Recognition</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <main class="container">
-      <div class="card result-card">
+    <main class="page-shell">
+      <section class="card result-card">
+        <span class="eyebrow">PREDICTION COMPLETE</span>
         <h1 class="title">Prediction Result</h1>
+        <p class="subtitle">The model's top prediction for your uploaded image is shown below.</p>
 
-        <div class="result-grid">
-          <div class="img-wrap">
-            <img src="{{ url_for('static', filename='uploads/' ~ filename) }}" alt="Uploaded image" />
-          </div>
-
-          <div class="info">
-            <p class="label">Predicted Breed</p>
-            <h2 class="breed-name">{{ breed }}</h2>
-            <p class="confidence">Confidence: <strong>{{ confidence }}%</strong></p>
-
-            <a href="{{ url_for('index') }}" class="btn secondary">Upload Another Image</a>
+        <div class="result-panel">
+          <div class="result-icon" aria-hidden="true">✓</div>
+          <p class="label">Predicted Breed</p>
+          <h2 class="breed-name">{{ breed }}</h2>
+          <div class="confidence">
+            Confidence <strong>{{ confidence }}%</strong>
           </div>
         </div>
 
+        <div class="result-actions">
+          <a href="{{ url_for('index') }}" class="btn">Upload Another Image</a>
+        </div>
+
+        <p class="privacy-note">The uploaded image was processed in memory and was not permanently stored.</p>
         <footer class="footer-note">By: Yash Chitmalwar</footer>
-      </div>
+      </section>
     </main>
   </body>
 </html>
