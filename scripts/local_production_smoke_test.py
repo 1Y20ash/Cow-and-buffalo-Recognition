@@ -12,8 +12,13 @@ server. The production entrypoint itself remains:
 import io
 import os
 import sys
+from pathlib import Path
 
 from PIL import Image
+
+# Add the repository root to Python's import path when this script is run directly.
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
 
 os.environ.setdefault("FLASK_SECRET_KEY", "local-smoke-test-secret")
 
