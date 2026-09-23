@@ -1,6 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, flash
 import os
-from werkzeug.utils import secure_filename
 import numpy as np
 from PIL import Image
 import tensorflow as tf
@@ -10,16 +9,12 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 # Configuration
 # ==========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 WEIGHTS_PATH = os.path.join(BASE_DIR, "models", "cow_breed_model_gpu.weights.h5")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.txt")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 IMG_SIZE = (224, 224)
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 # Secret key must be supplied by the deployment environment.
@@ -119,12 +114,14 @@ model = load_production_model()
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def prepare_image(image_path):
-    img = Image.open(image_path).convert("RGB").resize(IMG_SIZE)
-    arr = np.array(img).astype("float32")
+def prepare_image(file_stream):
+    """Decode and preprocess an uploaded image entirely in memory."""
+    with Image.open(file_stream) as img:
+        img = img.convert("RGB").resize(IMG_SIZE)
+        arr = np.array(img).astype("float32")
+
     arr = preprocess_input(arr)
-    arr = np.expand_dims(arr, axis=0)
-    return arr
+    return np.expand_dims(arr, axis=0)
 
 # ==========================
 # Routes
@@ -143,17 +140,13 @@ def index():
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(save_path)
-
             if model is None:
                 flash("Model not loaded on server.", "danger")
                 return redirect(request.url)
 
             try:
-                x = prepare_image(save_path)
-                preds = model.predict(x)[0]
+                x = prepare_image(file.stream)
+                preds = model.predict(x, verbose=0)[0]
                 top_idx = int(np.argmax(preds))
                 confidence = float(preds[top_idx])
                 breed = idx_to_class.get(top_idx, "Unknown")
@@ -163,7 +156,7 @@ def index():
 
             return render_template(
                 "result.html",
-                filename=filename,
+                filename=file.filename,
                 breed=breed,
                 confidence=round(confidence * 100, 2)
             )
@@ -173,10 +166,6 @@ def index():
             return redirect(request.url)
 
     return render_template("index.html")
-
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return redirect(url_for("static", filename=f"uploads/{filename}"))
 
 # ==========================
 # Run Server
