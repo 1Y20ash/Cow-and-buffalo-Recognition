@@ -1,6 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, flash
 import os
-from werkzeug.utils import secure_filename
 import numpy as np
 from PIL import Image
 import tensorflow as tf
@@ -10,17 +9,18 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 # Configuration
 # ==========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 WEIGHTS_PATH = os.path.join(BASE_DIR, "models", "cow_breed_model_gpu.weights.h5")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.txt")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 IMG_SIZE = (224, 224)
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.secret_key = "a-very-secret-key"
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY environment variable is required.")
+app.secret_key = secret_key
 
 # ==========================
 # Rebuild SAME architecture as training script
@@ -42,50 +42,102 @@ def build_model(num_classes):
     x = tf.keras.layers.Dropout(0.3)(x)
     x = tf.keras.layers.Dense(128, activation="relu")(x)
     x = tf.keras.layers.Dropout(0.3)(x)
-
-    # final float32 layer (same as training)
-    out = tf.keras.layers.Dense(num_classes, activation="softmax", dtype="float32")(x)
-
-    model = tf.keras.Model(inputs=inp, outputs=out)
-    return model
+    out = tf.keras.layers.Dense(
+        num_classes, activation="softmax", dtype="float32"
+    )(x)
+    return tf.keras.Model(inputs=inp, outputs=out)
 
 # ==========================
 # Load labels
 # ==========================
 try:
-    with open(LABELS_PATH, "r") as f:
-        labels = [line.strip() for line in f.readlines()]
+    with open(LABELS_PATH, "r", encoding="utf-8") as f:
+        labels = [line.strip() for line in f if line.strip()]
+
+    if len(labels) != 42:
+        raise ValueError(f"Expected exactly 42 labels, found {len(labels)}.")
+    if len(set(labels)) != len(labels):
+        raise ValueError("labels.txt contains duplicate labels.")
+
     idx_to_class = {i: name for i, name in enumerate(labels)}
-    print(f"✅ Loaded {len(labels)} labels")
+    print(f"Loaded and validated {len(labels)} labels")
 except Exception as e:
-    labels = []
-    idx_to_class = {}
-    print(f"❌ Failed to load labels: {e}")
+    raise RuntimeError(f"Label loading/validation failed: {e}") from e
 
 # ==========================
 # Load model weights
 # ==========================
-model = None
-try:
-    model = build_model(len(idx_to_class))
-    model.load_weights(WEIGHTS_PATH)
-    print("✅ Loaded model weights successfully!")
-except Exception as e:
-    print(f"❌ Failed to load model weights: {e}")
-    model = None
+def load_production_model():
+    if not os.path.isfile(WEIGHTS_PATH):
+        raise FileNotFoundError(f"Model weights not found: {WEIGHTS_PATH}")
+
+    production_model = build_model(len(labels))
+    output_shape = production_model.output_shape
+
+    if len(output_shape) != 2 or output_shape[-1] != len(labels):
+        raise RuntimeError(
+            "Model output/label mismatch: "
+            f"model outputs {output_shape[-1] if output_shape else 'unknown'} "
+            f"classes, but labels.txt contains {len(labels)}."
+        )
+
+    try:
+        production_model.load_weights(WEIGHTS_PATH)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load model weights from {WEIGHTS_PATH}: {e}"
+        ) from e
+
+    print(
+        "Production model loaded successfully: "
+        f"EfficientNetB0 → {output_shape[-1]} classes"
+    )
+    return production_model
+
+model = load_production_model()
 
 # ==========================
 # Helpers
 # ==========================
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    )
 
-def prepare_image(image_path):
-    img = Image.open(image_path).convert("RGB").resize(IMG_SIZE)
-    arr = np.array(img).astype("float32")
+
+def prepare_image(file_stream):
+    """Decode and preprocess an uploaded image entirely in memory."""
+    with Image.open(file_stream) as img:
+        img = img.convert("RGB").resize(IMG_SIZE)
+        arr = np.array(img).astype("float32")
+
     arr = preprocess_input(arr)
-    arr = np.expand_dims(arr, axis=0)
-    return arr
+    return np.expand_dims(arr, axis=0)
+
+# ==========================
+# Health & Readiness
+# ==========================
+@app.route("/health/live", methods=["GET"])
+def health_live():
+    """Liveness probe: confirms the Flask process is responding."""
+    return {"status": "ok"}, 200
+
+
+@app.route("/health/ready", methods=["GET"])
+def health_ready():
+    """Readiness probe: confirms the model and labels are loaded."""
+    if model is None or len(labels) != 42:
+        return {
+            "status": "not_ready",
+            "reason": "production model or labels are unavailable"
+        }, 503
+
+    return {
+        "status": "ready",
+        "model": "EfficientNetB0",
+        "classes": len(labels)
+    }, 200
 
 # ==========================
 # Routes
@@ -104,44 +156,43 @@ def index():
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(save_path)
-
             if model is None:
                 flash("Model not loaded on server.", "danger")
                 return redirect(request.url)
 
             try:
-                x = prepare_image(save_path)
-                preds = model.predict(x)[0]
-                top_idx = int(np.argmax(preds))
-                confidence = float(preds[top_idx])
-                breed = idx_to_class.get(top_idx, "Unknown")
+                x = prepare_image(file.stream)
+                preds = model.predict(x, verbose=0)[0]
+
+                top_indices = np.argsort(preds)[-3:][::-1]
+                predictions = [
+                    {
+                        "breed": idx_to_class.get(int(index), "Unknown"),
+                        "confidence": round(float(preds[index]) * 100, 2)
+                    }
+                    for index in top_indices
+                ]
+
+                top_prediction = predictions[0]
             except Exception as e:
                 flash(f"Prediction error: {e}", "danger")
                 return redirect(request.url)
 
             return render_template(
                 "result.html",
-                filename=filename,
-                breed=breed,
-                confidence=round(confidence * 100, 2)
+                filename=file.filename,
+                breed=top_prediction["breed"],
+                confidence=top_prediction["confidence"],
+                predictions=predictions
             )
 
-        else:
-            flash("Allowed file types: png, jpg, jpeg", "danger")
-            return redirect(request.url)
+        flash("Allowed file types: png, jpg, jpeg", "danger")
+        return redirect(request.url)
 
     return render_template("index.html")
-
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return redirect(url_for("static", filename=f"uploads/{filename}"))
 
 # ==========================
 # Run Server
 # ==========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
