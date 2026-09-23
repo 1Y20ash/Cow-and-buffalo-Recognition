@@ -112,6 +112,7 @@ except Exception as e:
 possible_paths = [
     r"C:\Users\yashc\OneDrive\Desktop\sih_updated\Indian_bovine_breeds\Indian_bovine_breeds",
     r"C:\Users\yashc\OneDrive\Desktop\sih_updated\Indian_bovine_breeds",
+    r"A:\Cow and Buffalo Breed Recogn\CB\Indian_bovine_breeds\Indian_bovine_breeds",
     os.path.join(os.getcwd(), "Indian_bovine_breeds"),
     os.path.join(os.getcwd())
 ]
