@@ -124,6 +124,31 @@ def prepare_image(file_stream):
     return np.expand_dims(arr, axis=0)
 
 # ==========================
+# Health & Readiness
+# ==========================
+@app.route("/health/live", methods=["GET"])
+def health_live():
+    """Liveness probe: confirms the Flask process is responding."""
+    return {"status": "ok"}, 200
+
+
+@app.route("/health/ready", methods=["GET"])
+def health_ready():
+    """Readiness probe: confirms the model and labels are loaded."""
+    if model is None or len(labels) != 42:
+        return {
+            "status": "not_ready",
+            "reason": "production model or labels are unavailable"
+        }, 503
+
+    return {
+        "status": "ready",
+        "model": "EfficientNetB0",
+        "classes": len(labels)
+    }, 200
+
+
+# ==========================
 # Routes
 # ==========================
 @app.route("/", methods=["GET", "POST"])
